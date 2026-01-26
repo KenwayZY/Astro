@@ -37,7 +37,7 @@ curl -L https://raw.githubusercontent.com/astro-btc/Astro/refs/heads/main/instal
 |--------------------------|-----------------------------------------------------------------|
 | `PORT`                   | 端口号，需要防火墙放行此端口 （默认8443暂不支持修改）                         |
 | `ALLOWED_DOMAIN`         | 云服务公网IP地址，也可以填域名（填写域名需替换证书）                   |
-| `ADMIN_PREFIX`           | 管理后台访问的 URL 前缀 （请自行更改）                             |
+| `ADMIN_PREFIX`           | 管理后台访问的 URL 后缀 （请自行更改， 最少4个字符）                             |
 | `ADMIN_SECURITY_CODE`    | 登录密码  （登录后，点击头像可修改密码）                                      |
 | `ADMIN_2FA_SECRET`       | 二次认证密钥，请导入 Google Authentication 使用 （登录后，点击头像可修改密码）    |
 
