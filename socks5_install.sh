@@ -57,6 +57,25 @@ get_default_ip() {
         sed "s/[[:space:]]*inet \([0-9.]*\)\/.*/\1/" | head -n1
 }
 
+get_input_source() {
+    if [ -r /dev/tty ]; then
+        echo "/dev/tty"
+    elif [ -t 0 ]; then
+        echo "/dev/stdin"
+    else
+        return 1
+    fi
+}
+
+prompt_read() {
+    local var_name="$1"
+    local prompt="$2"
+    local input_source
+
+    input_source=$(get_input_source) || return 1
+    IFS= read -r -p "$prompt" "$var_name" < "$input_source"
+}
+
 # ======================== Docker 安装 ========================
 
 install_docker() {
@@ -122,21 +141,23 @@ read_user_config() {
     [ -z "$default_ip" ] && default_ip=$(ip addr | grep 'inet ' | grep -v '127.0.0' | \
         sed "s/[[:space:]]*inet \([0-9.]*\)\/.*/\1/" | head -n1)
 
+    get_input_source >/dev/null || die "当前运行方式不支持交互输入，请改为先下载后执行，或使用 --ip/--port/--user/--passwd 参数静默安装"
+
     echo ""
     echo -e "${BOLD}========== 请配置 SOCKS5 代理参数 ==========${NC}"
     echo ""
 
-    read -rp "$(echo -e "${CYAN}[1/4]${NC} 服务器公网 IP [默认: ${default_ip}]: ")" INPUT_IP
+    prompt_read INPUT_IP "$(echo -e "${CYAN}[1/4]${NC} 服务器公网 IP [默认: ${default_ip}]: ")" || die "读取服务器公网 IP 失败"
     SOCKS_IP="${INPUT_IP:-$default_ip}"
 
-    read -rp "$(echo -e "${CYAN}[2/4]${NC} 监听端口 [默认: 2020]: ")" INPUT_PORT
+    prompt_read INPUT_PORT "$(echo -e "${CYAN}[2/4]${NC} 监听端口 [默认: 2020]: ")" || die "读取监听端口失败"
     SOCKS_PORT="${INPUT_PORT:-2020}"
 
-    read -rp "$(echo -e "${CYAN}[3/4]${NC} 认证用户名 [默认: sockd]: ")" INPUT_USER
+    prompt_read INPUT_USER "$(echo -e "${CYAN}[3/4]${NC} 认证用户名 [默认: sockd]: ")" || die "读取认证用户名失败"
     SOCKS_USER="${INPUT_USER:-sockd}"
 
     while true; do
-        read -rp "$(echo -e "${CYAN}[4/4]${NC} 认证密码 (不能为空): ")" INPUT_PASS
+        prompt_read INPUT_PASS "$(echo -e "${CYAN}[4/4]${NC} 认证密码 (不能为空): ")" || die "读取认证密码失败"
         if [ -n "$INPUT_PASS" ]; then
             SOCKS_PASS="$INPUT_PASS"
             break
@@ -151,7 +172,7 @@ read_user_config() {
     echo -e "  用户名:    ${GREEN}${SOCKS_USER}${NC}"
     echo -e "  密码:      ${GREEN}${SOCKS_PASS}${NC}"
     echo ""
-    read -rp "确认以上配置开始安装? [Y/n]: " CONFIRM
+    prompt_read CONFIRM "确认以上配置开始安装? [Y/n]: " || die "读取确认选项失败"
     CONFIRM="${CONFIRM:-Y}"
     if [[ ! "$CONFIRM" =~ ^[Yy]$ ]]; then
         log_info "已取消安装"
@@ -223,13 +244,13 @@ do_uninstall() {
     docker stop "${CONTAINER_NAME}" 2>/dev/null || true
     docker rm "${CONTAINER_NAME}" 2>/dev/null || true
 
-    read -rp "是否删除配置和数据目录 ${DATA_DIR}? [y/N]: " DEL_DATA
+    prompt_read DEL_DATA "是否删除配置和数据目录 ${DATA_DIR}? [y/N]: " || DEL_DATA="N"
     if [[ "$DEL_DATA" =~ ^[Yy]$ ]]; then
         rm -rf "${DATA_DIR}"
         log_info "数据目录已删除"
     fi
 
-    read -rp "是否删除 Docker 镜像 ${DOCKER_IMAGE}? [y/N]: " DEL_IMG
+    prompt_read DEL_IMG "是否删除 Docker 镜像 ${DOCKER_IMAGE}? [y/N]: " || DEL_IMG="N"
     if [[ "$DEL_IMG" =~ ^[Yy]$ ]]; then
         docker rmi "${DOCKER_IMAGE}" 2>/dev/null || true
         log_info "Docker 镜像已删除"
